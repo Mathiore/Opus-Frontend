@@ -471,8 +471,8 @@ eas build --platform ios
 
 ## 🔮 Próximos Passos
 
-- [ ] Integração com Supabase para backend real
-- [ ] Autenticação real com Supabase Auth
+- [ ] Integração com backend
+- [ ] Autenticação Clerk
 - [ ] Notificações push
 - [ ] Integração com gateway de pagamento
 - [ ] Sistema de avaliações
