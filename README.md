@@ -480,8 +480,3 @@ eas build --platform ios
 - [ ] Upload de imagens para storage
 - [ ] Testes unitários e de integração
 - [ ] CI/CD pipeline
-
-## 📄 Licença
-
-Este projeto é privado.
-
