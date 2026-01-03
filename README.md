@@ -83,7 +83,7 @@ Para desenvolvimento mobile:
 1. **Clone o repositório**
    ```bash
    git clone <url-do-repositorio>
-   cd Opus-Frontend-main
+   cd Opus-Frontend
    ```
 
 2. **Instale as dependências**
