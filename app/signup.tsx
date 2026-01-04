@@ -1,41 +1,42 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSignIn } from '@clerk/clerk-expo';
+import { useSignUp } from '@clerk/clerk-expo';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Logo } from '@/components/Logo';
 
-export default function LoginScreen() {
+export default function SignUpScreen() {
   const router = useRouter();
-  const { isLoaded, signIn, setActive } = useSignIn();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { isLoaded, signUp, setActive } = useSignUp();
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
 
-  const handleLogin = async () => {
+  const handleSignUp = async () => {
     if (!isLoaded) return;
 
     try {
       setLoading(true);
       setError('');
 
-      const result = await signIn.create({
-        identifier: email,
+      await signUp.create({
+        emailAddress: email,
         password,
+        firstName: name.split(' ')[0] || name,
+        lastName: name.split(' ').slice(1).join(' ') || '',
       });
 
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        router.replace('/(tabs)');
-      } else {
-        // Se precisar de verificação adicional (2FA, etc)
-        setError('Login incompleto. Verifique seu email.');
-      }
+      // Enviar código de verificação por email
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+
+      // Sempre redirecionar para verificação de email após cadastro
+      router.replace('/verify-email');
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Erro ao fazer login');
-      console.error('Erro no login:', err);
+      setError(err.errors?.[0]?.message || 'Erro ao criar conta');
+      console.error('Erro no signup:', err);
     } finally {
       setLoading(false);
     }
@@ -57,7 +58,7 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <Logo size="large" style={styles.logo} />
-          <Text style={styles.subtitle}>Bem-vindo de volta</Text>
+          <Text style={styles.subtitle}>Criar nova conta</Text>
         </View>
 
         {error ? (
@@ -68,8 +69,16 @@ export default function LoginScreen() {
 
         <View style={styles.form}>
           <Input
-            label="Email ou Telefone"
-            placeholder="Digite seu email ou telefone"
+            label="Nome completo"
+            placeholder="Digite seu nome completo"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+          />
+
+          <Input
+            label="Email"
+            placeholder="Digite seu email"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -84,15 +93,11 @@ export default function LoginScreen() {
             secureTextEntry
           />
 
-          <Pressable style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
-          </Pressable>
-
           <Button
-            title="Entrar"
-            onPress={handleLogin}
+            title="Criar conta"
+            onPress={handleSignUp}
             loading={loading}
-            disabled={!email || !password}
+            disabled={!email || !password || !name}
           />
 
           <View style={styles.divider}>
@@ -102,8 +107,8 @@ export default function LoginScreen() {
           </View>
 
           <Button
-            title="Criar conta"
-            onPress={() => router.push('/signup')}
+            title="Já tenho uma conta"
+            onPress={() => router.push('/login')}
             variant="outline"
           />
         </View>
@@ -134,6 +139,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666666',
   },
+  form: {
+    width: '100%',
+  },
   errorContainer: {
     backgroundColor: '#FFEBEE',
     padding: 12,
@@ -143,18 +151,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#C62828',
     fontSize: 14,
-  },
-  form: {
-    width: '100%',
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: '#4A90E2',
-    fontWeight: '500',
   },
   divider: {
     flexDirection: 'row',
@@ -172,3 +168,4 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
 });
+

@@ -19,14 +19,20 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
+import { useAuth } from '@clerk/clerk-expo';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useApp();
+  const { user } = useApp();
+  const { signOut } = useAuth();
 
-  const handleLogout = () => {
-    logout();
-    router.replace('/login');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.replace('/login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
   };
 
   const MenuItem = ({
@@ -90,7 +96,12 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileCard}>
-          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          <Image
+            source={{
+              uri: user.avatar || user.photo_url || 'https://via.placeholder.com/96',
+            }}
+            style={styles.avatar}
+          />
           <Text style={styles.userName}>{user.name}</Text>
           <Text style={styles.userEmail}>{user.email}</Text>
         </View>

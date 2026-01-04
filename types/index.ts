@@ -64,8 +64,12 @@ export interface Conversation {
 
 export interface User {
   id: string;
+  clerk_user_id: string;
   name: string;
   email: string;
-  phone: string;
-  avatar: string;
+  phone?: string;
+  photo_url?: string;
+  avatar?: string; // Alias para photo_url para compatibilidade
+  preferred_mode?: 'consumer' | 'provider';
+  roles?: Array<{ id: number; name: string }>;
 }

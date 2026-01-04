@@ -62,6 +62,8 @@ export default function HomeScreen() {
               title: 'Encanador',
             },
           ]}
+          centerPin={true}
+          zoom={14}
         />
       </View>
 
