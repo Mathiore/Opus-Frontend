@@ -6,6 +6,7 @@ import { MapView } from '@/components/MapView';
 import { BottomSheet } from '@/components/BottomSheet';
 import { CategoryChip } from '@/components/CategoryChip';
 import { Button } from '@/components/Button';
+import { Logo } from '@/components/Logo';
 import { useApp } from '@/context/AppContext';
 
 export default function HomeScreen() {
@@ -30,7 +31,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.logo}>OPUS</Text>
+          <Logo size="small" />
           <Pressable style={styles.locationButton}>
             <MapPin size={20} color="#4A90E2" />
             <Text style={styles.locationText}>São Paulo, SP</Text>
@@ -111,11 +112,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  logo: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#4A90E2',
   },
   locationButton: {
     flexDirection: 'row',

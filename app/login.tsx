@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
+import { Logo } from '@/components/Logo';
 import { useApp } from '@/context/AppContext';
 
 export default function LoginScreen() {
@@ -28,7 +29,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>OPUS</Text>
+          <Logo size="large" style={styles.logo} />
           <Text style={styles.subtitle}>
             Bem-vindo de volta
           </Text>
@@ -96,9 +97,6 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   logo: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: '#4A90E2',
     marginBottom: 8,
   },
   subtitle: {
