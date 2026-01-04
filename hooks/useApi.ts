@@ -1,7 +1,8 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { useCallback } from 'react';
+import { getApiUrl } from '@/utils/apiConfig';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3030';
+const API_URL = getApiUrl();
 
 export function useApi() {
   const { getToken, isLoaded, isSignedIn } = useAuth();

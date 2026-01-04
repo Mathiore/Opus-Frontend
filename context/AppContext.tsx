@@ -20,7 +20,7 @@ import {
   mockOrders,
   mockConversations,
 } from '@/data/mockData';
-import { useApi } from '@/hooks/useApi';
+import { getApiUrl } from '@/utils/apiConfig';
 
 interface AppContextType {
   user: User | null;
@@ -60,30 +60,75 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       setIsLoading(true);
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3030';
+      const API_URL = getApiUrl();
       const token = await getToken();
 
-      const response = await fetch(`${API_URL}/v1/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      if (!token) {
+        console.warn('Token não disponível para buscar dados do usuário');
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // ⚠️ CRÍTICO: Usar /v1/auth/me para lazy sync (cria usuário no banco)
+      // Criar um AbortController para timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos
+
+      let response;
+      try {
+        response = await fetch(`${API_URL}/v1/auth/me`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Network request timed out');
+        }
+        throw fetchError;
+      }
 
       if (response.ok) {
-        const userData = await response.json();
+        const data = await response.json();
+        // Pode retornar { user: {...}, roles: [...] } ou apenas {...}
+        const userData = data.user || data;
+        
         // Normalizar dados do usuário
         const normalizedUser: User = {
           ...userData,
           avatar: userData.photo_url || userData.avatar,
         };
         setUser(normalizedUser);
+        console.log('Usuário sincronizado com sucesso:', normalizedUser);
       } else {
-        console.error('Erro ao buscar dados do usuário:', response.status);
+        const errorData = await response.json().catch(() => ({}));
+        const errorText = errorData.error || `HTTP ${response.status}`;
+        console.error(
+          `Erro ao sincronizar usuário: ${response.status} - ${errorText}`
+        );
         setUser(null);
       }
-    } catch (error) {
-      console.error('Erro ao buscar dados do usuário:', error);
+    } catch (error: any) {
+      // Tratamento mais detalhado de erros de rede
+      if (error.message === 'Network request failed') {
+        console.error(
+          'Erro de conexão: Não foi possível conectar ao backend.\n' +
+            'Verifique se:\n' +
+            '1. O backend está rodando em ' +
+            getApiUrl() +
+            '\n' +
+            '2. Se estiver usando dispositivo físico ou emulador, use o IP da sua máquina em vez de localhost\n' +
+            '3. Configure EXPO_PUBLIC_API_URL no arquivo .env com o IP correto (ex: http://192.168.1.100:3030)'
+        );
+      } else {
+        console.error('Erro ao sincronizar usuário:', error.message || error);
+      }
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -93,12 +138,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authLoaded) {
       if (isSignedIn) {
+        // Sincroniza usuário imediatamente após login (lazy sync)
         refreshUser();
       } else {
         setUser(null);
         setIsLoading(false);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn, authLoaded]);
 
   const logout = () => {
