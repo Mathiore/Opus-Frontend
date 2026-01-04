@@ -1,32 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSignUp, useAuth } from '@clerk/clerk-expo';
+import { useSignIn, useAuth } from '@clerk/clerk-expo';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Logo } from '@/components/Logo';
 import { getApiUrl } from '@/utils/apiConfig';
 
-export default function VerifyEmailScreen() {
+export default function VerifyLoginEmailScreen() {
   const router = useRouter();
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { isLoaded, signIn, setActive } = useSignIn();
   const { getToken } = useAuth();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resending, setResending] = useState(false);
-  const [email, setEmail] = useState('');
-
-  useEffect(() => {
-    if (isLoaded && signUp) {
-      // Obter o email do signUp
-      const emailAddress = signUp.emailAddress || signUp.unverifiedEmailAddresses?.[0];
-      setEmail(emailAddress || '');
-    }
-  }, [isLoaded, signUp]);
 
   const handleVerify = async () => {
-    if (!isLoaded || !signUp) return;
+    if (!isLoaded || !signIn) return;
 
     if (code.length !== 6) {
       setError('O código deve ter 6 dígitos');
@@ -37,10 +28,24 @@ export default function VerifyEmailScreen() {
       setLoading(true);
       setError('');
 
-      // Tentar verificar o código
-      const result = await signUp.attemptEmailAddressVerification({
-        code,
-      });
+      // Verificar se é primeiro ou segundo fator
+      // Se o primeiro fator já foi verificado, usar attemptSecondFactor
+      let result;
+      if (signIn.firstFactorVerification?.status === 'verified') {
+        // Primeiro fator já verificado, usar segundo fator
+        console.log('Verificando segundo fator (email)');
+        result = await signIn.attemptSecondFactor({
+          strategy: 'email_code',
+          code,
+        });
+      } else {
+        // Primeiro fator ainda não verificado, usar attemptFirstFactor
+        console.log('Verificando primeiro fator (email)');
+        result = await signIn.attemptFirstFactor({
+          strategy: 'email_code',
+          code,
+        });
+      }
 
       if (result.status === 'complete') {
         // Verificação bem-sucedida, ativar sessão
@@ -81,9 +86,9 @@ export default function VerifyEmailScreen() {
 
                 if (syncResponse.ok) {
                   const syncData = await syncResponse.json();
-                  console.log('Usuário sincronizado com sucesso após verificação:', syncData);
+                  console.log('Usuário sincronizado com sucesso após verificação de login:', syncData);
                 } else {
-                  console.warn('Aviso: Falha ao sincronizar usuário após verificação');
+                  console.warn('Aviso: Falha ao sincronizar usuário após verificação de login');
                 }
               } catch (fetchError: any) {
                 clearTimeout(timeoutId);
@@ -121,13 +126,24 @@ export default function VerifyEmailScreen() {
   };
 
   const handleResendCode = async () => {
-    if (!isLoaded || !signUp) return;
+    if (!isLoaded || !signIn) return;
 
     try {
       setResending(true);
       setError('');
 
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      // Verificar se é primeiro ou segundo fator
+      if (signIn.firstFactorVerification?.status === 'verified') {
+        // Primeiro fator já verificado, reenviar segundo fator
+        await signIn.prepareSecondFactor({
+          strategy: 'email_code',
+        });
+      } else {
+        // Primeiro fator ainda não verificado, reenviar primeiro fator
+        await signIn.prepareFirstFactor({
+          strategy: 'email_code',
+        });
+      }
       
       // Mostrar mensagem de sucesso
       setError('Código reenviado! Verifique seu email.');
@@ -148,22 +164,28 @@ export default function VerifyEmailScreen() {
     );
   }
 
-  if (!signUp) {
+  if (!signIn) {
     return (
       <View style={styles.container}>
         <View style={styles.content}>
           <Text style={styles.errorText}>
-            Nenhuma verificação pendente. Por favor, faça o cadastro novamente.
+            Nenhuma verificação pendente. Por favor, faça o login novamente.
           </Text>
           <Button
-            title="Voltar para cadastro"
-            onPress={() => router.replace('/signup')}
+            title="Voltar para login"
+            onPress={() => router.replace('/login')}
             style={styles.button}
           />
         </View>
       </View>
     );
   }
+
+  // Obter email do identificador ou dos fatores suportados
+  const email = signIn.identifier || 
+    signIn.supportedFirstFactors?.find((f) => f.strategy === 'email_code')?.safeIdentifier ||
+    signIn.supportedSecondFactors?.find((f) => f.strategy === 'email_code')?.safeIdentifier ||
+    '';
 
   return (
     <View style={styles.container}>
@@ -238,8 +260,8 @@ export default function VerifyEmailScreen() {
           </View>
 
           <Button
-            title="Voltar para cadastro"
-            onPress={() => router.replace('/signup')}
+            title="Voltar para login"
+            onPress={() => router.replace('/login')}
             variant="outline"
           />
         </View>
