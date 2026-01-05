@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,11 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Send, Star } from 'lucide-react-native';
+import { ArrowLeft, Send } from 'lucide-react-native';
+import { useChat } from '@/hooks/useChat';
 import { useApp } from '@/context/AppContext';
 
 const quickMessages = [
@@ -24,66 +26,135 @@ const quickMessages = [
 export default function ChatScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const { getConversationById, sendMessage } = useApp();
+  const { user } = useApp();
+  const conversationId = id as string;
+  const flatListRef = useRef<FlatList>(null);
 
-  const conversation = getConversationById(id as string);
+  // Usar hook de chat com polling a cada 5 segundos
+  const {
+    messages,
+    conversation,
+    loading,
+    error,
+    sending,
+    sendMessage,
+    markAsRead,
+  } = useChat({
+    conversationId,
+    pollingInterval: 5000,
+    autoMarkAsRead: true,
+  });
+
+  // Marcar como lida quando a tela é aberta
+  useEffect(() => {
+    if (conversationId) {
+      markAsRead();
+    }
+  }, [conversationId, markAsRead]);
+
+  // Scroll para última mensagem quando novas mensagens chegam
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages.length]);
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || sending) return;
+
+    try {
+      await sendMessage(message.trim());
+      setMessage('');
+    } catch (err) {
+      console.error('Erro ao enviar mensagem:', err);
+    }
+  };
+
+  const handleQuickMessage = async (text: string) => {
+    if (sending) return;
+    try {
+      await sendMessage(text);
+    } catch (err) {
+      console.error('Erro ao enviar mensagem rápida:', err);
+    }
+  };
+
   const [message, setMessage] = useState('');
+
+  if (loading && !conversation) {
+    return (
+      <View style={[styles.container, styles.centerContainer]}>
+        <ActivityIndicator size="large" color="#4A90E2" />
+        <Text style={styles.loadingText}>Carregando conversa...</Text>
+      </View>
+    );
+  }
+
+  if (error && !conversation) {
+    return (
+      <View style={[styles.container, styles.centerContainer]}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Pressable
+          style={styles.retryButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Voltar</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (!conversation) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, styles.centerContainer]}>
         <Text style={styles.errorText}>Conversa não encontrada</Text>
       </View>
     );
   }
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      sendMessage(conversation.id, message.trim());
-      setMessage('');
-    }
+  const isOwnMessage = (senderUserId: string) => {
+    return senderUserId === user?.id;
   };
 
-  const handleQuickMessage = (text: string) => {
-    sendMessage(conversation.id, text);
+  const renderMessage = ({ item }: { item: any }) => {
+    const isOwn = isOwnMessage(item.sender_user_id);
+    return (
+      <View
+        style={[
+          styles.messageBubble,
+          isOwn ? styles.messageBubbleClient : styles.messageBubbleProfessional,
+        ]}
+      >
+        <Text
+          style={[
+            styles.messageText,
+            isOwn && styles.messageTextClient,
+          ]}
+        >
+          {item.content}
+        </Text>
+        <Text
+          style={[
+            styles.messageTime,
+            isOwn && styles.messageTimeClient,
+          ]}
+        >
+          {new Date(item.created_at).toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </Text>
+      </View>
+    );
   };
-
-  const renderMessage = ({ item }: { item: any }) => (
-    <View
-      style={[
-        styles.messageBubble,
-        item.isFromClient
-          ? styles.messageBubbleClient
-          : styles.messageBubbleProfessional,
-      ]}
-    >
-      <Text
-        style={[
-          styles.messageText,
-          item.isFromClient && styles.messageTextClient,
-        ]}
-      >
-        {item.text}
-      </Text>
-      <Text
-        style={[
-          styles.messageTime,
-          item.isFromClient && styles.messageTimeClient,
-        ]}
-      >
-        {item.timestamp.toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })}
-      </Text>
-    </View>
-  );
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -91,32 +162,46 @@ export default function ChatScreen() {
         </Pressable>
 
         <View style={styles.headerInfo}>
-          <Image
-            source={{ uri: conversation.professionalAvatar }}
-            style={styles.headerAvatar}
-          />
+          <View style={styles.headerAvatar}>
+            <Text style={styles.headerAvatarText}>
+              {conversation.consumer_user_id === user?.id ? 'P' : 'C'}
+            </Text>
+          </View>
           <View style={styles.headerText}>
             <Text style={styles.headerName}>
-              {conversation.professionalName}
+              {conversation.consumer_user_id === user?.id
+                ? 'Prestador'
+                : 'Cliente'}
             </Text>
-            <View style={styles.headerRating}>
-              <Star size={14} color="#FFB800" fill="#FFB800" />
-              <Text style={styles.headerRatingText}>4.8</Text>
-            </View>
+            {conversation.unread_count > 0 && (
+              <Text style={styles.unreadBadge}>
+                {conversation.unread_count} não lidas
+              </Text>
+            )}
           </View>
         </View>
 
         <View style={styles.headerRight} />
       </View>
 
-      <FlatList
-        data={conversation.messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.messagesList}
-        showsVerticalScrollIndicator={false}
-        inverted={false}
-      />
+      {loading && messages.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loadingText}>Carregando mensagens...</Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.messagesList}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }}
+        />
+      )}
 
       <View style={styles.quickMessagesContainer}>
         <FlatList
@@ -125,6 +210,7 @@ export default function ChatScreen() {
             <Pressable
               style={styles.quickMessageChip}
               onPress={() => handleQuickMessage(item)}
+              disabled={sending}
             >
               <Text style={styles.quickMessageText}>{item}</Text>
             </Pressable>
@@ -145,20 +231,25 @@ export default function ChatScreen() {
           onChangeText={setMessage}
           multiline
           maxLength={500}
+          editable={!sending}
         />
         <Pressable
           style={[
             styles.sendButton,
-            !message.trim() && styles.sendButtonDisabled,
+            (!message.trim() || sending) && styles.sendButtonDisabled,
           ]}
           onPress={handleSendMessage}
-          disabled={!message.trim()}
+          disabled={!message.trim() || sending}
         >
-          <Send
-            size={20}
-            color={message.trim() ? '#FFFFFF' : '#999999'}
-            fill={message.trim() ? '#FFFFFF' : 'transparent'}
-          />
+          {sending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Send
+              size={20}
+              color={message.trim() ? '#FFFFFF' : '#999999'}
+              fill={message.trim() ? '#FFFFFF' : 'transparent'}
+            />
+          )}
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -169,6 +260,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  centerContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -194,7 +289,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#4A90E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   headerText: {
     marginLeft: 12,
@@ -205,15 +307,10 @@ const styles = StyleSheet.create({
     color: '#000000',
     marginBottom: 2,
   },
-  headerRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  headerRatingText: {
+  unreadBadge: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#666666',
+    color: '#4A90E2',
+    fontWeight: '500',
   },
   headerRight: {
     width: 32,
@@ -309,8 +406,24 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#666666',
+    color: '#C62828',
     textAlign: 'center',
-    marginTop: 100,
+    marginBottom: 16,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666666',
+    marginTop: 12,
+  },
+  retryButton: {
+    backgroundColor: '#4A90E2',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
