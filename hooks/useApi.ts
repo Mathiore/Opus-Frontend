@@ -1,29 +1,21 @@
-import { useAuth } from '@clerk/clerk-expo';
 import { useCallback } from 'react';
 import { getApiUrl } from '@/utils/apiConfig';
+import { getToken } from '@/services/authService';
 
 const API_URL = getApiUrl();
 
 export function useApi() {
-  const { getToken, isLoaded, isSignedIn } = useAuth();
-
   const apiCall = useCallback(
     async (endpoint: string, options: RequestInit = {}) => {
-      if (!isLoaded) {
-        throw new Error('Auth not loaded');
-      }
-
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         ...options.headers,
       };
 
-      // Adiciona token apenas se o usuário estiver autenticado
-      if (isSignedIn) {
-        const token = await getToken();
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+      // Adiciona token se disponível
+      const token = await getToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
 
       const response = await fetch(`${API_URL}/v1${endpoint}`, {
@@ -40,9 +32,8 @@ export function useApi() {
 
       return response.json();
     },
-    [getToken, isLoaded, isSignedIn]
+    []
   );
 
   return { apiCall };
 }
-

@@ -1,14 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSignUp } from '@clerk/clerk-expo';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Logo } from '@/components/Logo';
+import { register } from '@/services/authService';
+import { useApp } from '@/context/AppContext';
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { refreshUser } = useApp();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [name, setName] = React.useState('');
@@ -16,39 +17,36 @@ export default function SignUpScreen() {
   const [error, setError] = React.useState('');
 
   const handleSignUp = async () => {
-    if (!isLoaded) return;
+    if (!email || !password || !name) {
+      setError('Por favor, preencha todos os campos');
+      return;
+    }
+
+    // Validação básica de senha
+    if (password.length < 8) {
+      setError('A senha deve ter pelo menos 8 caracteres');
+      return;
+    }
 
     try {
       setLoading(true);
       setError('');
 
-      await signUp.create({
-        emailAddress: email,
-        password,
-        firstName: name.split(' ')[0] || name,
-        lastName: name.split(' ').slice(1).join(' ') || '',
-      });
-
-      // Enviar código de verificação por email
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-
-      // Sempre redirecionar para verificação de email após cadastro
-      router.replace('/verify-email');
+      const response = await register(email, password, name);
+      
+      // Atualizar dados do usuário no contexto
+      await refreshUser();
+      
+      // Redirecionar para a tela principal
+      router.replace('/(tabs)');
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || 'Erro ao criar conta');
+      const errorMessage = err.message || 'Erro ao criar conta';
+      setError(errorMessage);
       console.error('Erro no signup:', err);
     } finally {
       setLoading(false);
     }
   };
-
-  if (!isLoaded) {
-    return (
-      <View style={styles.container}>
-        <Text>Carregando...</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -87,7 +85,7 @@ export default function SignUpScreen() {
 
           <Input
             label="Senha"
-            placeholder="Digite sua senha"
+            placeholder="Digite sua senha (mínimo 8 caracteres)"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -168,4 +166,3 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
 });
-

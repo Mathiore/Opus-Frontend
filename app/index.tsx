@@ -1,23 +1,23 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useAuth } from '@clerk/clerk-expo';
+import { useApp } from '@/context/AppContext';
 
 export default function Index() {
   const router = useRouter();
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isAuthenticated, isLoading } = useApp();
 
   useEffect(() => {
-    if (!isLoaded) return;
-
-    setTimeout(() => {
-      if (isSignedIn) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/login');
-      }
-    }, 500);
-  }, [isSignedIn, isLoaded]);
+    if (!isLoading) {
+      setTimeout(() => {
+        if (isAuthenticated) {
+          router.replace('/(tabs)');
+        } else {
+          router.replace('/login');
+        }
+      }, 500);
+    }
+  }, [isAuthenticated, isLoading]);
 
   return (
     <View style={styles.container}>

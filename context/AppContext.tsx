@@ -5,7 +5,6 @@ import React, {
   useEffect,
   ReactNode,
 } from 'react';
-import { useAuth } from '@clerk/clerk-expo';
 import {
   Order,
   Conversation,
@@ -21,6 +20,7 @@ import {
   mockConversations,
 } from '@/data/mockData';
 import { getApiUrl } from '@/utils/apiConfig';
+import { getToken, isAuthenticated as checkAuth, logout as authLogout } from '@/services/authService';
 
 interface AppContextType {
   user: User | null;
@@ -30,7 +30,7 @@ interface AppContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   refreshUser: () => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   createOrder: (order: Omit<Order, 'id' | 'createdAt' | 'proposals'>) => Order;
   acceptProposal: (orderId: string, proposalId: string) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
@@ -42,25 +42,18 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const { isSignedIn, isLoaded: authLoaded, getToken } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [conversations, setConversations] =
     useState<Conversation[]>(mockConversations);
 
-  const isAuthenticated = isSignedIn || false;
+  const isAuthenticated = user !== null;
 
   const refreshUser = async () => {
-    if (!isSignedIn || !authLoaded) {
-      setUser(null);
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
-      const API_URL = getApiUrl();
       const token = await getToken();
 
       if (!token) {
@@ -70,7 +63,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // ⚠️ CRÍTICO: Usar /v1/auth/me para lazy sync (cria usuário no banco)
+      const API_URL = getApiUrl();
+      
       // Criar um AbortController para timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 segundos
@@ -105,12 +99,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
           avatar: userData.photo_url || userData.avatar,
         };
         setUser(normalizedUser);
-        console.log('Usuário sincronizado com sucesso:', normalizedUser);
+        console.log('Usuário carregado com sucesso:', normalizedUser);
+      } else if (response.status === 401) {
+        // Token inválido ou expirado
+        console.warn('Token inválido ou expirado');
+        await authLogout();
+        setUser(null);
       } else {
         const errorData = await response.json().catch(() => ({}));
         const errorText = errorData.error || `HTTP ${response.status}`;
         console.error(
-          `Erro ao sincronizar usuário: ${response.status} - ${errorText}`
+          `Erro ao buscar usuário: ${response.status} - ${errorText}`
         );
         setUser(null);
       }
@@ -127,7 +126,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             '3. Configure EXPO_PUBLIC_API_URL no arquivo .env com o IP correto (ex: http://192.168.1.100:3030)'
         );
       } else {
-        console.error('Erro ao sincronizar usuário:', error.message || error);
+        console.error('Erro ao buscar usuário:', error.message || error);
       }
       setUser(null);
     } finally {
@@ -135,22 +134,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Verificar autenticação ao carregar o app
   useEffect(() => {
-    if (authLoaded) {
-      if (isSignedIn) {
-        // Sincroniza usuário imediatamente após login (lazy sync)
-        refreshUser();
+    const checkAuthentication = async () => {
+      const authenticated = await checkAuth();
+      if (authenticated) {
+        await refreshUser();
       } else {
         setUser(null);
         setIsLoading(false);
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn, authLoaded]);
+      setAuthChecked(true);
+    };
 
-  const logout = () => {
+    checkAuthentication();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const logout = async () => {
+    await authLogout();
     setUser(null);
-    // O Clerk gerencia o logout
   };
 
   const createOrder = (

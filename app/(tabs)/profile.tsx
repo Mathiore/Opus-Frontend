@@ -19,16 +19,14 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
-import { useAuth } from '@clerk/clerk-expo';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user } = useApp();
-  const { signOut } = useAuth();
+  const { user, logout } = useApp();
 
   const handleLogout = async () => {
     try {
-      await signOut();
+      await logout();
       router.replace('/login');
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
