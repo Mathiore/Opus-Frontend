@@ -30,3 +30,4 @@ export async function updateUser(data: UpdateUserRequest): Promise<User> {
   return response.json();
 }
 
+

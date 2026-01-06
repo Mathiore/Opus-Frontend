@@ -134,3 +134,4 @@ Todos os tipos estão definidos em `@/types/api.ts`:
 import type { Job, CreateJobRequest, Offer } from '@/types/api';
 ```
 
+
