@@ -16,7 +16,7 @@ export function useChat(options: UseChatOptions = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Carregar conversa se jobId for fornecido
   useEffect(() => {
@@ -189,5 +189,7 @@ export function useConversations(params?: { limit?: number; offset?: number }) {
     refresh: loadConversations,
   };
 }
+
+
 
 
