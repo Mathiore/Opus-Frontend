@@ -41,6 +41,13 @@ export function getApiUrl(): string {
       console.log(`[API Config] ℹ️ No Android, localhost não funciona. Use 10.0.2.2 ou o IP da máquina.`);
     }
     
+    // Aviso sobre CORS no Web
+    if (platform === 'web' && __DEV__) {
+      console.warn(`[API Config] ⚠️ Expo Web detectado!`);
+      console.warn(`[API Config] ⚠️ Certifique-se de que o backend aceita requisições de http://localhost:8081 (ou a porta do Expo Web)`);
+      console.warn(`[API Config] ⚠️ Verifique a configuração de CORS no backend. Veja CORS_FIX.md`);
+    }
+    
     console.log(`[API Config] ✅ URL final da API: ${url}`);
     return url;
   }
@@ -56,6 +63,9 @@ export function getApiUrl(): string {
     
     // iOS Simulator ou desenvolvimento web
     const url = 'http://localhost:3030';
+    if (Platform.OS === 'web') {
+      console.warn(`[API Config] ⚠️ Expo Web detectado! Certifique-se de que o backend aceita CORS de http://localhost:8081`);
+    }
     console.log(`[API Config] iOS/Web detectado (sem env): ${url}`);
     return url;
   }
