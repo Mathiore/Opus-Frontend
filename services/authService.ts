@@ -156,6 +156,22 @@ export async function login(
         `3. O dispositivo/emulador tem acesso à rede`
       );
     }
+    
+    // Verificar se é erro de CORS (geralmente aparece no console do navegador)
+    if (error.message?.includes('CORS') || error.message?.includes('Access-Control-Allow-Origin')) {
+      console.error('=== [Auth Service] ERRO DE CORS ===');
+      console.error('O backend não está configurado para aceitar requisições do Expo Web.');
+      console.error('Verifique o arquivo CORS_FIX.md para mais informações.');
+      console.error('O backend precisa aceitar requisições de: http://localhost:8081');
+      throw new Error(
+        `Erro de CORS: O backend não está configurado para aceitar requisições do Expo Web.\n\n` +
+        `Solução:\n` +
+        `1. Configure o CORS no backend para aceitar: http://localhost:8081\n` +
+        `2. Verifique o arquivo CORS_FIX.md para exemplos de configuração\n` +
+        `3. Certifique-se de que o backend responde corretamente ao preflight request (OPTIONS)`
+      );
+    }
+    
     throw error;
   }
 }
@@ -263,6 +279,12 @@ export async function register(
       console.error('4. Para dispositivo físico, use o IP da sua máquina');
       console.error('5. Verifique se o firewall não está bloqueando a porta 3030');
       
+      // Verificar se é erro de CORS (pode aparecer como Network request failed no web)
+      if (Platform.OS === 'web') {
+        console.error('\n⚠️ Expo Web detectado! Este pode ser um erro de CORS.');
+        console.error('Verifique o arquivo CORS_FIX.md para configurar o CORS no backend.');
+      }
+      
       // Criar mensagem de erro mais amigável
       const friendlyError = new Error(
         `Não foi possível conectar ao servidor.\n\n` +
@@ -270,10 +292,27 @@ export async function register(
         `Soluções:\n` +
         `• Android Emulator: Use http://10.0.2.2:3030\n` +
         `• Dispositivo físico: Use o IP da sua máquina\n` +
+        `• Expo Web: Configure CORS no backend (veja CORS_FIX.md)\n` +
         `• Verifique se o backend está rodando`
       );
       throw friendlyError;
     }
+    
+    // Verificar se é erro de CORS (geralmente aparece no console do navegador)
+    if (error.message?.includes('CORS') || error.message?.includes('Access-Control-Allow-Origin')) {
+      console.error('=== [Auth Service] ERRO DE CORS ===');
+      console.error('O backend não está configurado para aceitar requisições do Expo Web.');
+      console.error('Verifique o arquivo CORS_FIX.md para mais informações.');
+      console.error('O backend precisa aceitar requisições de: http://localhost:8081');
+      throw new Error(
+        `Erro de CORS: O backend não está configurado para aceitar requisições do Expo Web.\n\n` +
+        `Solução:\n` +
+        `1. Configure o CORS no backend para aceitar: http://localhost:8081\n` +
+        `2. Verifique o arquivo CORS_FIX.md para exemplos de configuração\n` +
+        `3. Certifique-se de que o backend responde corretamente ao preflight request (OPTIONS)`
+      );
+    }
+    
     throw error;
   }
 }
